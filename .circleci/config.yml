@@ -27,7 +27,7 @@ jobs:
       - run:
           name: "Build and Push Docker Image to Deployment Docker Hub"
           command: |
-            echo "$ASTRONOMER_KEY_SECRET" | docker login images.astronomer.cloud -u "$ASTRONOMER_KEY_ID" -p "$ASTRONOMER_KEY_SECRET"
+            echo "$ASTRONOMER_KEY_SECRET" | docker login images.astronomer.cloud --username "$ASTRONOMER_KEY_ID" --password "$ASTRONOMER_KEY_SECRET"
             docker build  -f ./Dockerfile -t images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG} .
             docker push images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG}
       - run:
