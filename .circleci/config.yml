@@ -1,0 +1,80 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/2.0/configuration-reference
+version: 2.1
+
+orbs:
+  docker: circleci/docker@2.0.1
+  github-cli: circleci/github-cli@2.0.0
+
+
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+jobs:
+
+  build_image_and_deploy:
+    parameters:
+      deploy_tag_prefix:
+        type: string
+        default: deploy
+    docker:
+      - image: cimg/base:stable
+    # Add steps to the job
+    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+    steps:
+      - setup_remote_docker:
+          version: 20.10.11
+      - run:
+          name: "Get Docker Image Tag from Date"
+          command: |
+            date_string=`date "+%Y-%m-%d-%HT%M-%S"`
+            echo export TAG=<<parameters.deploy_tag_prefix>>-${date_string} >> $BASH_ENV
+      - checkout
+      - run:
+          name: "Build and Push Docker Image to Deployment Docker Hub"
+          command: |
+            echo "$ASTRONOMER_KEY_SECRET" | docker login -u "$ASTRONOMER_KEY_ID" --password-stdin images.astronomer.cloud
+            docker build  -f ./Dockerfile -t images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG} .
+            docker push images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG}
+      - run:
+          name: "Get Access Token from API Security Key"
+          command: |
+            token=$( curl --location --request POST 'https://auth.astronomer.io/oauth/token' \
+            --header 'content-type: application/json' \
+            --data-raw "{ \"client_id\": \"${ASTRONOMER_KEY_ID}\",\"client_secret\": \"${ASTRONOMER_KEY_SECRET}\",\"audience\": \"astronomer-ee\",\"grant_type\":\"client_credentials\"}" | jq -r '.access_token' )
+            echo export AUTH_TOKEN=${token} >> $BASH_ENV
+      - run:
+          name: "Create and Get Docker Image ID"
+          command: |
+            payload="$(printf '{"query":"mutation ImageCreate($input: ImageCreateInput!) {\\n  imageCreate(input: $input) {\\n    id\\n    tag\\n    repository\\n    digest\\n    env\\n    labels\\n    deploymentId\\n  }\\n}","variables":{"input":{"deploymentId":"%s","tag":"%s"}}}' ${DEPLOYMENT_ID} ${TAG})"
+            image=$( curl --location --request POST "https://api.astronomer.io/hub/v1" \
+              --header "Authorization: Bearer $AUTH_TOKEN" \
+              --header "Content-Type: application/json" \
+              --data "$payload" | jq -r '.data.imageCreate.id')
+            echo export IMAGE_ID=${image} >> $BASH_ENV
+      - run:
+          name: "Deploy Image to Cloud Deployment"
+          command: |
+            docker images
+            echo images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG}
+            payload="$(printf '{"query":"mutation imageDeploy($input: ImageDeployInput!) {\\n    imageDeploy(\\n      input: $input\\n    ) {\\n      id\\n      deploymentId\\n      digest\\n      env\\n      labels\\n      name\\n      tag\\n      repository\\n    }\\n}","variables":{"input":{"id":"%s","tag":"%s","repository":"images.astronomer.cloud/%s/%s"}}}' $IMAGE_ID $TAG $ORGANIZATION_ID $DEPLOYMENT_ID)"
+            echo $payload
+            curl --location --request POST 'https://api.astronomer.io/hub/v1' \
+              --header "Authorization: Bearer ${AUTH_TOKEN}" \
+              --header 'Content-Type: application/json' \
+              --data "$payload"
+
+
+
+# Invoke jobs via workflows
+# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+workflows:
+  build-and-deploy-prod:
+    jobs:
+      - build_image_and_deploy:
+          deploy_tag_prefix: prod
+          context:
+              - data_gen2_deployment_prod
+          filters:
+            branches:
+              only:
+                - main
