@@ -12,10 +12,6 @@ orbs:
 jobs:
 
   build_image_and_deploy:
-    parameters:
-      deploy_tag_prefix:
-        type: string
-        default: deploy
     docker:
       - image: cimg/base:stable
     # Add steps to the job
@@ -23,11 +19,6 @@ jobs:
     steps:
       - setup_remote_docker:
           version: 20.10.11
-      - run:
-          name: "Get Docker Image Tag from Date"
-          command: |
-            date_string=`date "+%Y-%m-%d-%HT%M-%S"`
-            echo export TAG=<<parameters.deploy_tag_prefix>>-${date_string} >> $BASH_ENV
       - checkout
       - run:
           name: "Build and Push Docker Image to Deployment Docker Hub"
@@ -54,6 +45,7 @@ jobs:
       - run:
           name: "Deploy Image to Cloud Deployment"
           command: |
+            TAG=0.1.$CIRCLE_BUILD_NUM
             docker images
             echo images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG}
             payload="$(printf '{"query":"mutation imageDeploy($input: ImageDeployInput!) {\\n    imageDeploy(\\n      input: $input\\n    ) {\\n      id\\n      deploymentId\\n      digest\\n      env\\n      labels\\n      name\\n      tag\\n      repository\\n    }\\n}","variables":{"input":{"id":"%s","tag":"%s","repository":"images.astronomer.cloud/%s/%s"}}}' $IMAGE_ID $TAG $ORGANIZATION_ID $DEPLOYMENT_ID)"
