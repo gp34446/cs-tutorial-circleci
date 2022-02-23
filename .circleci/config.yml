@@ -23,6 +23,7 @@ jobs:
       - run:
           name: "Build and Push Docker Image to Deployment Docker Hub"
           command: |
+            TAG=0.1.$CIRCLE_BUILD_NUM
             echo "$ASTRONOMER_KEY_SECRET" | docker login -u "$ASTRONOMER_KEY_ID" --password-stdin images.astronomer.cloud
             docker build  -f ./Dockerfile -t images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG} .
             docker push images.astronomer.cloud/${ORGANIZATION_ID}/${DEPLOYMENT_ID}:${TAG}
