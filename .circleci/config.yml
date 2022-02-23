@@ -68,33 +68,13 @@ jobs:
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
-  # build-and-deploy-prod:
-  #   jobs:
-  #     - build_image_and_deploy:
-  #         deploy_tag_prefix: prod
-  #         context:
-  #             - data_gen2_deployment_prod
-  #         filters:
-  #           branches:
-  #             only:
-  #               - main
-  
-  # Deploy to Prod with Release Tag
   build-and-deploy-prod:
     jobs:
-    - pause_workflow:
-        type: approval
-        filters:
-          tags:
-            only: /.*/
-          branches:
-            ignore: /.*/
-    - build_image_and_deploy:
-        deploy_tag_prefix: prod
-        context:
-          - data_gen2_deployment_prod
-        filters:
-          tags:
-            only: /.*/
-          branches:
-            ignore: /.*/
+      - build_image_and_deploy:
+          deploy_tag_prefix: prod
+          context:
+              - data_gen2_deployment_prod
+          filters:
+            branches:
+              only:
+                - main
