@@ -75,7 +75,7 @@ workflows:
 
   build-and-deploy-dev:
     jobs:
-      - build_image_and_Deploy:
+      - build_image_and_deploy:
           context:
             - cs-poc-dev
           filters:
