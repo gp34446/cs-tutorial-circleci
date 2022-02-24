@@ -72,3 +72,13 @@ workflows:
             branches:
               only:
                 - main
+
+  build-and-deploy-dev:
+    jobs:
+      - build_image_and_Deploy:
+          context:
+            - cs-poc-dev
+          filters:
+            branches:
+              only:
+                - dev
